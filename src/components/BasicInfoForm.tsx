@@ -1,0 +1,63 @@
+import React, { useState, useEffect } from 'react';
+import { Box, TextField, Button, Typography } from '@mui/material';
+import { Pack } from '../types/pack';
+
+interface BasicInfoFormProps {
+  onSubmit: (data: { author: string; name: string }) => void;
+  initialData: Pick<Pack, 'author' | 'name'>;
+}
+
+const BasicInfoForm: React.FC<BasicInfoFormProps> = ({ onSubmit, initialData }) => {
+  const [formData, setFormData] = useState({
+    author: initialData.author,
+    name: initialData.name,
+  });
+
+  // Update form data when initialData prop changes
+  useEffect(() => {
+    setFormData(initialData);
+  }, [initialData]);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSubmit(formData);
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  return (
+    <Box component="form" onSubmit={handleSubmit} sx={{ mt: 2 }}>
+      <Typography variant="h6" gutterBottom>
+        Basic Information
+      </Typography>
+      <TextField
+        required
+        fullWidth
+        label="Pack Name"
+        name="name"
+        value={formData.name}
+        onChange={handleChange}
+        margin="normal"
+      />
+      <TextField
+        required
+        fullWidth
+        label="Author"
+        name="author"
+        value={formData.author}
+        onChange={handleChange}
+        margin="normal"
+      />
+      <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
+        <Button type="submit" variant="contained">
+          Next
+        </Button>
+      </Box>
+    </Box>
+  );
+};
+
+export default BasicInfoForm; 
