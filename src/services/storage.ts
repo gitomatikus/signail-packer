@@ -1,15 +1,33 @@
-import { Pack, Round, Theme, Question } from '../types/pack';
+import { Pack } from '../types/pack';
 
 const DB_NAME = 'packerDB';
 const DB_VERSION = 2;
 const STORE_NAME = 'pack';
 
-export const initDB = (): Promise<IDBDatabase> => {
+let dbInstance: IDBDatabase | null = null;
+let dbOpeningPromise: Promise<IDBDatabase> | null = null;
+
+const openDatabase = (): Promise<IDBDatabase> => {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
 
-    request.onerror = () => reject(request.error);
-    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => {
+      dbOpeningPromise = null;
+      reject(request.error);
+    };
+
+    request.onsuccess = () => {
+      const db = request.result;
+      db.onclose = () => {
+        dbInstance = null;
+        dbOpeningPromise = null;
+      };
+      db.onversionchange = () => {
+        db.close();
+      };
+      dbInstance = db;
+      resolve(db);
+    };
 
     request.onupgradeneeded = (event) => {
       const db = (event.target as IDBOpenDBRequest).result;
@@ -18,6 +36,18 @@ export const initDB = (): Promise<IDBDatabase> => {
       }
     };
   });
+};
+
+export const initDB = (): Promise<IDBDatabase> => {
+  if (dbInstance) {
+    return Promise.resolve(dbInstance);
+  }
+
+  if (!dbOpeningPromise) {
+    dbOpeningPromise = openDatabase();
+  }
+
+  return dbOpeningPromise;
 };
 
 export const savePack = async (pack: Pack): Promise<void> => {
@@ -29,7 +59,7 @@ export const savePack = async (pack: Pack): Promise<void> => {
     // Save pack with a unique ID
     const packWithId = {
       ...pack,
-      id: 'current-pack'
+      id: 'current-pack',
     };
     store.put(packWithId);
 
@@ -69,4 +99,4 @@ export const clearStorage = async (): Promise<void> => {
     request.onsuccess = () => resolve();
     request.onerror = () => reject(request.error);
   });
-}; 
+};

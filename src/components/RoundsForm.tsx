@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Button,
@@ -38,7 +38,7 @@ const RoundsForm: React.FC<RoundsFormProps> = ({ onSubmit, initialData, onRounds
   const [expandedThemes, setExpandedThemes] = useState<{[key: string]: boolean}>({});
   const [expandedRounds, setExpandedRounds] = useState<boolean[]>(initialData.map(() => true));
 
-  const getNextQuestionId = () => {
+  const getNextQuestionId = useCallback(() => {
     let maxId = 0;
     rounds.forEach(round => {
       round.themes.forEach(theme => {
@@ -50,7 +50,7 @@ const RoundsForm: React.FC<RoundsFormProps> = ({ onSubmit, initialData, onRounds
       });
     });
     return maxId + 1;
-  };
+  }, [rounds]);
 
   useEffect(() => {
     // Update expandedRounds when initialData changes (e.g., pack loaded)

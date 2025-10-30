@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Box,
   Stepper,
@@ -26,6 +26,8 @@ const PackForm: React.FC = () => {
   });
   const [dbReady, setDbReady] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const saveTimeoutRef = useRef<number | null>(null);
+  const latestPackRef = useRef(packData);
 
   // Initialize database
   useEffect(() => {
@@ -58,21 +60,51 @@ const PackForm: React.FC = () => {
     }
   }, [dbReady]); // Depends on dbReady
 
-  // Save pack data whenever it changes and DB is ready
+  // Save pack data whenever it changes and DB is ready in a throttled manner
   useEffect(() => {
-    if (dbReady) {
-      const saveToStorage = async () => {
-        try {
-          if (packData.name || packData.author || packData.rounds.length > 0) {
-            await savePack(packData);
-          }
-        } catch (error) {
-          console.error('Error saving pack:', error);
-        }
-      };
-      saveToStorage();
+    if (!dbReady) {
+      return;
     }
-  }, [packData, dbReady]); // Depends on packData and dbReady
+
+    if (!packData.name && !packData.author && packData.rounds.length === 0) {
+      return;
+    }
+
+    if (saveTimeoutRef.current !== null) {
+      window.clearTimeout(saveTimeoutRef.current);
+    }
+
+    saveTimeoutRef.current = window.setTimeout(() => {
+      savePack(packData).catch((error) => {
+        console.error('Error saving pack:', error);
+      });
+      saveTimeoutRef.current = null;
+    }, 500);
+
+    return () => {
+      if (saveTimeoutRef.current !== null) {
+        window.clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, [packData, dbReady]);
+
+  useEffect(() => {
+    latestPackRef.current = packData;
+  }, [packData]);
+
+  useEffect(() => {
+    return () => {
+      if (saveTimeoutRef.current !== null) {
+        window.clearTimeout(saveTimeoutRef.current);
+        if (dbReady && (latestPackRef.current.name || latestPackRef.current.author || latestPackRef.current.rounds.length > 0)) {
+          savePack(latestPackRef.current).catch((error) => {
+            console.error('Error saving pack on unmount:', error);
+          });
+        }
+        saveTimeoutRef.current = null;
+      }
+    };
+  }, [dbReady]);
 
   const handleNext = () => {
     setActiveStep((prevStep) => Math.min(prevStep + 1, steps.length - 1));
@@ -92,9 +124,9 @@ const PackForm: React.FC = () => {
     handleNext();
   };
 
-  const handlePackDataChange = (newPackData: Pack) => {
-    setPackData(newPackData);
-  };
+  const handleRoundsChange = useCallback((rounds: Pack['rounds']) => {
+    setPackData((prev) => ({ ...prev, rounds }));
+  }, []);
 
   const handleDownload = () => {
     const jsonString = JSON.stringify(packData, null, 2);
@@ -147,7 +179,13 @@ const PackForm: React.FC = () => {
       case 0:
         return <BasicInfoForm onSubmit={handleBasicInfoSubmit} initialData={packData} />;
       case 1:
-        return <RoundsForm onSubmit={handleRoundsSubmit} initialData={packData.rounds} onRoundsChange={(rounds) => handlePackDataChange({ ...packData, rounds })} />;
+        return (
+          <RoundsForm
+            onSubmit={handleRoundsSubmit}
+            initialData={packData.rounds}
+            onRoundsChange={handleRoundsChange}
+          />
+        );
       case 2:
         return <ReviewForm packData={packData} onDownload={handleDownload} />;
       default:
