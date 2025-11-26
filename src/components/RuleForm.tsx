@@ -20,20 +20,21 @@ import { Add as AddIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import { Rule, RuleType } from '../types/pack';
 import ReactQuill, { Quill } from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
+import '../quill-theme.css';
 
 const Video = Quill.import('formats/video');
 const Link = Quill.import('formats/link');
 
 class CoustomVideo extends Video {
 
-  
+
   static blotName = 'video';
   static className = 'ql-video';
   static tagName = 'DIV';
 
   create(value: string) {
     const node = super.create(value);
-    
+
     const video = document.createElement('video')
     // video.setAttribute('controls', true);
     video.setAttribute('type', "video/mp4");
@@ -54,30 +55,22 @@ interface RuleFormProps {
   rules: Rule[];
   onRulesChange: (rules: Rule[]) => void;
   title: string;
+  draftRule: Partial<Rule>;
+  onDraftRuleChange: (rule: Partial<Rule>) => void;
 }
 
-const RuleForm: React.FC<RuleFormProps> = ({ rules, onRulesChange, title }) => {
-  const [currentRule, setCurrentRule] = useState<Partial<Rule>>({
-    type: RuleType.Embedded,
-    content: '',
-    duration: 15,
-  });
-
-  // Add auto-save effect
-  useEffect(() => {
-    const autoSaveInterval = setInterval(() => {
-      if (currentRule.content) {
-        handleAddRule();
-      }
-    }, 20000); // 20 seconds
-
-    return () => clearInterval(autoSaveInterval);
-  }, [currentRule]); // Re-run effect when currentRule changes
+const RuleForm: React.FC<RuleFormProps> = ({
+  rules,
+  onRulesChange,
+  title,
+  draftRule,
+  onDraftRuleChange
+}) => {
 
   function convertMediaTags(htmlString: string): string {
     const checkLength = Math.min(200, htmlString.length);
     const prefix = htmlString.substring(0, checkLength);
-  
+
     if (prefix.includes('<img src="data:video')) {
       return htmlString.replace('<img', '<video controls autoplay');
     } else if (prefix.includes('<img src="data:audio')) {
@@ -86,15 +79,16 @@ const RuleForm: React.FC<RuleFormProps> = ({ rules, onRulesChange, title }) => {
       return htmlString;
     }
   }
+
   const handleAddRule = () => {
-    if (currentRule.type && currentRule.content) {
+    if (draftRule.type && draftRule.content) {
       const ruleToAdd = {
-        ...currentRule,
-        content: convertMediaTags(currentRule.content),
+        ...draftRule,
+        content: convertMediaTags(draftRule.content),
       } as Rule;
       onRulesChange([...rules, ruleToAdd]);
       console.log('Rule added:', ruleToAdd);
-      setCurrentRule({
+      onDraftRuleChange({
         type: RuleType.Embedded,
         content: '',
         duration: 15,
@@ -136,8 +130,8 @@ const RuleForm: React.FC<RuleFormProps> = ({ rules, onRulesChange, title }) => {
           <Typography variant="body2" gutterBottom>
             Content
           </Typography>
-          <Box sx={{ 
-            maxHeight: '100px', 
+          <Box sx={{
+            maxHeight: '100px',
             width: '100%',
             overflow: 'auto',
             '& .ql-container': {
@@ -151,8 +145,8 @@ const RuleForm: React.FC<RuleFormProps> = ({ rules, onRulesChange, title }) => {
           }}>
             <ReactQuill
               theme="snow"
-              value={currentRule.content || ''}
-              onChange={(html) => setCurrentRule({ ...currentRule, content: html })}
+              value={draftRule.content || ''}
+              onChange={(html) => onDraftRuleChange({ ...draftRule, content: html })}
               modules={modules}
               formats={formats}
             />
@@ -162,8 +156,8 @@ const RuleForm: React.FC<RuleFormProps> = ({ rules, onRulesChange, title }) => {
             fullWidth
             type="number"
             label="Duration (seconds)"
-            value={currentRule.duration || 15}
-            onChange={(e) => setCurrentRule({ ...currentRule, duration: parseInt(e.target.value) })}
+            value={draftRule.duration || 15}
+            onChange={(e) => onDraftRuleChange({ ...draftRule, duration: parseInt(e.target.value) })}
           />
 
           <Button
@@ -184,8 +178,8 @@ const RuleForm: React.FC<RuleFormProps> = ({ rules, onRulesChange, title }) => {
               <ListItemText
                 primary={`${rule.type} Rule`}
                 secondary={
-                  <Box sx={{ 
-                    maxHeight: '400px', 
+                  <Box sx={{
+                    maxHeight: '400px',
                     width: '100%',
                     overflow: 'auto',
                     '& img, & video': {

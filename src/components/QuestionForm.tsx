@@ -54,9 +54,9 @@ const QuestionForm: React.FC<QuestionFormProps> = ({ questions, onQuestionsChang
         ...currentQuestion,
         id: getNextQuestionId()
       } as Question;
-      
+
       onQuestionsChange([...questions, newQuestion]);
-      
+
       setCurrentQuestion({
         id: getNextQuestionId(),
         type: QuestionType.Normal,
@@ -95,13 +95,13 @@ const QuestionForm: React.FC<QuestionFormProps> = ({ questions, onQuestionsChang
       }
     }));
     // Explicitly call onQuestionsChange after price update
-    const updatedQuestions = questions.map(q => 
-      q.id === currentQuestion.id ? { 
-        ...q, 
-        price: { 
+    const updatedQuestions = questions.map(q =>
+      q.id === currentQuestion.id ? {
+        ...q,
+        price: {
           ...q.price!,
-          [field]: field === 'text' ? value.toString() : value 
-        } 
+          [field]: field === 'text' ? value.toString() : value
+        }
       } : q
     );
     onQuestionsChange(updatedQuestions);
@@ -197,11 +197,15 @@ const QuestionForm: React.FC<QuestionFormProps> = ({ questions, onQuestionsChang
                   rules={question.rules || []}
                   onRulesChange={(rules) => handleRulesChange(index, rules)}
                   title="Rules"
+                  draftRule={{}}
+                  onDraftRuleChange={() => { }}
                 />
                 <RuleForm
                   rules={question.after_round || []}
                   onRulesChange={(rules) => handleAfterRoundChange(index, rules)}
                   title="After Round Rules"
+                  draftRule={{}}
+                  onDraftRuleChange={() => { }}
                 />
               </Box>
             </Collapse>

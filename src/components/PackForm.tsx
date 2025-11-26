@@ -1,33 +1,34 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import {
-  Box,
-  Stepper,
-  Step,
-  StepLabel,
-  Button,
-  Typography,
-  Container,
-  Paper,
-} from '@mui/material';
-import { Pack } from '../types/pack';
-import BasicInfoForm from './BasicInfoForm';
-import RoundsForm from './RoundsForm';
-import ReviewForm from './ReviewForm';
+import React, { useState, useEffect, useRef } from 'react';
+import { Container } from '@mui/material';
+import { Pack, Round, Question, Theme } from '../types/pack';
 import { savePack, loadPack, initDB, clearStorage } from '../services/storage';
-
-const steps = ['Basic Information', 'Rounds', 'Review'];
+import PackHeader from './PackHeader';
+import GameBoardGrid from './GameBoardGrid';
+import QuestionModal from './QuestionModal';
 
 const PackForm: React.FC = () => {
-  const [activeStep, setActiveStep] = useState(0);
   const [packData, setPackData] = useState<Pack>({
     author: '',
     name: '',
-    rounds: [],
+    rounds: [
+      {
+        name: 'Round 1',
+        themes: [],
+      },
+    ],
   });
+  const [currentRoundIndex, setCurrentRoundIndex] = useState(0);
   const [dbReady, setDbReady] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const saveTimeoutRef = useRef<number | null>(null);
   const latestPackRef = useRef(packData);
+
+  // Question Modal State
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editingQuestion, setEditingQuestion] = useState<{
+    themeIndex: number;
+    questionIndex: number;
+    question: Question | null;
+  } | null>(null);
 
   // Initialize database
   useEffect(() => {
@@ -37,13 +38,12 @@ const PackForm: React.FC = () => {
         setDbReady(true);
       } catch (error) {
         console.error('Error initializing database:', error);
-        // Handle error appropriately, maybe show an error message to the user
       }
     };
     initializeDatabase();
-  }, []); // Empty dependency array means this effect runs once on mount
+  }, []);
 
-  // Load saved pack data on component mount after DB is ready
+  // Load saved pack data
   useEffect(() => {
     if (dbReady) {
       const loadSavedPack = async () => {
@@ -58,15 +58,12 @@ const PackForm: React.FC = () => {
       };
       loadSavedPack();
     }
-  }, [dbReady]); // Depends on dbReady
+  }, [dbReady]);
 
-  // Save pack data whenever it changes and DB is ready in a throttled manner
+  // Auto-save pack data
   useEffect(() => {
-    if (!dbReady) {
-      return;
-    }
-
-    if (!packData.name && !packData.author && packData.rounds.length === 0) {
+    if (!dbReady) return;
+    if (!packData.name && !packData.author && packData.rounds.length === 1 && packData.rounds[0].themes.length === 0) {
       return;
     }
 
@@ -96,7 +93,7 @@ const PackForm: React.FC = () => {
     return () => {
       if (saveTimeoutRef.current !== null) {
         window.clearTimeout(saveTimeoutRef.current);
-        if (dbReady && (latestPackRef.current.name || latestPackRef.current.author || latestPackRef.current.rounds.length > 0)) {
+        if (dbReady && (latestPackRef.current.name || latestPackRef.current.author || latestPackRef.current.rounds[0].themes.length > 0)) {
           savePack(latestPackRef.current).catch((error) => {
             console.error('Error saving pack on unmount:', error);
           });
@@ -106,27 +103,120 @@ const PackForm: React.FC = () => {
     };
   }, [dbReady]);
 
-  const handleNext = () => {
-    setActiveStep((prevStep) => Math.min(prevStep + 1, steps.length - 1));
+  // Round navigation
+  const handlePreviousRound = () => {
+    if (currentRoundIndex > 0) {
+      setCurrentRoundIndex(currentRoundIndex - 1);
+    }
   };
 
-  const handleBack = () => {
-    setActiveStep((prevStep) => prevStep - 1);
+  const handleNextRound = () => {
+    if (currentRoundIndex < packData.rounds.length - 1) {
+      setCurrentRoundIndex(currentRoundIndex + 1);
+    } else {
+      // Create new round
+      const newRound: Round = {
+        name: `Round ${packData.rounds.length + 1}`,
+        themes: [],
+      };
+      setPackData((prev) => ({
+        ...prev,
+        rounds: [...prev.rounds, newRound],
+      }));
+      setCurrentRoundIndex(packData.rounds.length);
+    }
   };
 
-  const handleBasicInfoSubmit = (data: { author: string; name: string }) => {
-    setPackData((prev) => ({ ...prev, ...data }));
-    handleNext();
+  const handleRoundNameChange = (name: string) => {
+    setPackData((prev) => {
+      const updatedRounds = [...prev.rounds];
+      updatedRounds[currentRoundIndex].name = name;
+      return { ...prev, rounds: updatedRounds };
+    });
   };
 
-  const handleRoundsSubmit = (rounds: Pack['rounds']) => {
-    setPackData((prev) => ({ ...prev, rounds }));
-    handleNext();
+  const handleThemeNameChange = (themeIndex: number, name: string) => {
+    setPackData((prev) => {
+      const updatedRounds = [...prev.rounds];
+      updatedRounds[currentRoundIndex].themes[themeIndex].name = name;
+      return { ...prev, rounds: updatedRounds };
+    });
   };
 
-  const handleRoundsChange = useCallback((rounds: Pack['rounds']) => {
-    setPackData((prev) => ({ ...prev, rounds }));
-  }, []);
+  const handleAddTheme = () => {
+    const newTheme: Theme = {
+      name: `Theme ${packData.rounds[currentRoundIndex].themes.length + 1}`,
+      description: '',
+      ordered: false,
+      questions: [],
+    };
+    setPackData((prev) => {
+      const updatedRounds = [...prev.rounds];
+      updatedRounds[currentRoundIndex].themes.push(newTheme);
+      return { ...prev, rounds: updatedRounds };
+    });
+  };
+
+  const handleDeleteTheme = (themeIndex: number) => {
+    setPackData((prev) => {
+      const updatedRounds = [...prev.rounds];
+      updatedRounds[currentRoundIndex].themes = updatedRounds[currentRoundIndex].themes.filter(
+        (_, i) => i !== themeIndex
+      );
+      return { ...prev, rounds: updatedRounds };
+    });
+  };
+
+  const handleAddQuestion = (themeIndex: number) => {
+    const theme = packData.rounds[currentRoundIndex].themes[themeIndex];
+    const questionIndex = theme.questions.length;
+
+    setEditingQuestion({
+      themeIndex,
+      questionIndex,
+      question: null,
+    });
+    setModalOpen(true);
+  };
+
+  const handleQuestionClick = (themeIndex: number, questionIndex: number) => {
+    const theme = packData.rounds[currentRoundIndex].themes[themeIndex];
+    const question = theme.questions[questionIndex] || null;
+
+    setEditingQuestion({
+      themeIndex,
+      questionIndex,
+      question,
+    });
+    setModalOpen(true);
+  };
+
+  const handleSaveQuestion = (question: Question) => {
+    if (!editingQuestion) return;
+
+    setPackData((prev) => {
+      const updatedRounds = [...prev.rounds];
+      const theme = updatedRounds[currentRoundIndex].themes[editingQuestion.themeIndex];
+
+      if (editingQuestion.questionIndex < theme.questions.length) {
+        // Update existing question
+        theme.questions[editingQuestion.questionIndex] = question;
+      } else {
+        // Add new question
+        theme.questions.push(question);
+      }
+
+      return { ...prev, rounds: updatedRounds };
+    });
+
+    setModalOpen(false);
+    setEditingQuestion(null);
+  };
+
+  const handleCloseModal = () => {
+    setModalOpen(false);
+    setEditingQuestion(null);
+  };
 
   const handleDownload = () => {
     const jsonString = JSON.stringify(packData, null, 2);
@@ -134,7 +224,7 @@ const PackForm: React.FC = () => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `${packData.name.toLowerCase().replace(/\s+/g, '-')}.json`;
+    link.download = `${packData.name.toLowerCase().replace(/\s+/g, '-') || 'pack'}.json`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -157,102 +247,58 @@ const PackForm: React.FC = () => {
     try {
       const text = await file.text();
       const jsonData = JSON.parse(text);
-      
-      // Validate the JSON structure
+
       if (!jsonData.author || !jsonData.name || !Array.isArray(jsonData.rounds)) {
         throw new Error('Invalid pack JSON structure');
       }
 
-      // Clear existing data and save new data
       await clearStorage();
       await savePack(jsonData);
       setPackData(jsonData);
-      setActiveStep(0); // Reset to first step
+      setCurrentRoundIndex(0);
     } catch (error) {
       console.error('Error loading JSON file:', error);
-      alert('Error loading JSON file. Please make sure it\'s a valid pack JSON file.');
+      alert("Error loading JSON file. Please make sure it's a valid pack JSON file.");
     }
   };
 
-  const getStepContent = (step: number) => {
-    switch (step) {
-      case 0:
-        return <BasicInfoForm onSubmit={handleBasicInfoSubmit} initialData={packData} />;
-      case 1:
-        return (
-          <RoundsForm
-            onSubmit={handleRoundsSubmit}
-            initialData={packData.rounds}
-            onRoundsChange={handleRoundsChange}
-          />
-        );
-      case 2:
-        return <ReviewForm packData={packData} onDownload={handleDownload} />;
-      default:
-        return 'Unknown step';
-    }
-  };
+  const currentRound = packData.rounds[currentRoundIndex];
 
   return (
-    <Container maxWidth="md">
-      <Paper sx={{ p: 4, mt: 4 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-          <Typography variant="h6" gutterBottom>
-            Create New Pack
-          </Typography>
-          <Box sx={{ display: 'flex', gap: 2 }}>
-            <input
-              type="file"
-              accept=".json"
-              onChange={handleFileUpload}
-              style={{ display: 'none' }}
-              ref={fileInputRef}
-            />
-            <Button
-              variant="contained"
-              onClick={() => fileInputRef.current?.click()}
-            >
-              Upload Pack
-            </Button>
-            <Button
-              variant="contained"
-              color="error"
-              onClick={handleClearStorage}
-            >
-              Clear All Data
-            </Button>
-          </Box>
-        </Box>
-        <Typography variant="h4" gutterBottom>
-          Create Pack
-        </Typography>
-        <Stepper activeStep={activeStep} sx={{ mb: 4 }}>
-          {steps.map((label) => (
-            <Step key={label}>
-              <StepLabel>{label}</StepLabel>
-            </Step>
-          ))}
-        </Stepper>
-        {getStepContent(activeStep)}
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2 }}>
-          <Button
-            disabled={activeStep === 0}
-            onClick={handleBack}
-          >
-            Back
-          </Button>
-          {activeStep === steps.length - 1 && (
-            <Button
-              variant="contained"
-              onClick={handleDownload}
-            >
-              Download Pack
-            </Button>
-          )}
-        </Box>
-      </Paper>
+    <Container maxWidth="xl" sx={{ py: 4 }}>
+      <PackHeader
+        packName={packData.name}
+        author={packData.author}
+        onPackNameChange={(name) => setPackData((prev) => ({ ...prev, name }))}
+        onAuthorChange={(author) => setPackData((prev) => ({ ...prev, author }))}
+        onUpload={handleFileUpload}
+        onDownload={handleDownload}
+        onClear={handleClearStorage}
+      />
+
+      <GameBoardGrid
+        currentRound={currentRound}
+        roundIndex={currentRoundIndex}
+        totalRounds={packData.rounds.length}
+        onPreviousRound={handlePreviousRound}
+        onNextRound={handleNextRound}
+        onRoundNameChange={handleRoundNameChange}
+        onThemeNameChange={handleThemeNameChange}
+        onQuestionClick={handleQuestionClick}
+        onAddQuestion={handleAddQuestion}
+        onDeleteTheme={handleDeleteTheme}
+        onAddTheme={handleAddTheme}
+      />
+
+      <QuestionModal
+        open={modalOpen}
+        question={editingQuestion?.question || null}
+        questionIndex={editingQuestion?.questionIndex || 0}
+        onSave={handleSaveQuestion}
+        onClose={handleCloseModal}
+      />
     </Container>
   );
 };
 
-export default PackForm; 
+export default PackForm;
