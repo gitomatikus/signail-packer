@@ -1,4 +1,4 @@
-import React, { useState, Component, useEffect } from 'react';
+import React, { useState, Component, useEffect, useRef, useMemo } from 'react';
 import {
   Box,
   Button,
@@ -32,14 +32,19 @@ class CoustomVideo extends Video {
   static className = 'ql-video';
   static tagName = 'DIV';
 
-  create(value: string) {
-    const node = super.create(value);
+  static create(value: string) {
+    const node = super.create(value) as HTMLElement;
 
-    const video = document.createElement('video')
-    // video.setAttribute('controls', true);
+    // Clear any existing content (like iframe from parent)
+    while (node.firstChild) {
+      node.removeChild(node.firstChild);
+    }
+
+    const video = document.createElement('video');
+    video.setAttribute('controls', 'true');
     video.setAttribute('type', "video/mp4");
     video.setAttribute('style', "height: 200px; width: 100%");
-    video.setAttribute('src', Link.sanitize(value));
+    video.setAttribute('src', value); // Use value directly, Link.sanitize might break data URIs
     node.appendChild(video);
 
     return node;
@@ -101,15 +106,47 @@ const RuleForm: React.FC<RuleFormProps> = ({
     onRulesChange(updatedRules);
   };
 
-  const modules = {
-    toolbar: [
-      [{ 'header': [1, 2, false] }],
-      ['bold', 'italic', 'underline', 'strike', 'blockquote'],
-      [{ 'list': 'ordered' }, { 'list': 'bullet' }, { 'indent': '-1' }, { 'indent': '+1' }],
-      ['link', 'image', 'video'],
-      ['clean'],
-    ],
+  const quillRef = useRef<ReactQuill>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const videoHandler = () => {
+    fileInputRef.current?.click();
   };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const base64 = reader.result as string;
+        const quill = quillRef.current?.getEditor();
+        if (quill) {
+          const range = quill.getSelection(true);
+          quill.insertEmbed(range.index, 'video', base64);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+    // Reset input so same file can be selected again
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const modules = useMemo(() => ({
+    toolbar: {
+      container: [
+        [{ 'header': [1, 2, false] }],
+        ['bold', 'italic', 'underline', 'strike', 'blockquote'],
+        [{ 'list': 'ordered' }, { 'list': 'bullet' }, { 'indent': '-1' }, { 'indent': '+1' }],
+        ['link', 'image', 'video'],
+        ['clean'],
+      ],
+      handlers: {
+        video: videoHandler,
+      },
+    },
+  }), []);
 
   const formats = [
     'header',
@@ -144,11 +181,19 @@ const RuleForm: React.FC<RuleFormProps> = ({
             }
           }}>
             <ReactQuill
+              ref={quillRef}
               theme="snow"
               value={draftRule.content || ''}
               onChange={(html) => onDraftRuleChange({ ...draftRule, content: html })}
               modules={modules}
               formats={formats}
+            />
+            <input
+              type="file"
+              accept="video/*"
+              ref={fileInputRef}
+              style={{ display: 'none' }}
+              onChange={handleFileChange}
             />
           </Box>
 
