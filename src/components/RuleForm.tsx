@@ -42,6 +42,7 @@ class CoustomVideo extends Video {
 
     const video = document.createElement('video');
     video.setAttribute('controls', 'true');
+    video.setAttribute('autoplay', 'true');
     video.setAttribute('type', "video/mp4");
     video.setAttribute('style', "height: 200px; width: 100%");
     video.setAttribute('src', value); // Use value directly, Link.sanitize might break data URIs
@@ -168,15 +169,15 @@ const RuleForm: React.FC<RuleFormProps> = ({
             Content
           </Typography>
           <Box sx={{
-            maxHeight: '100px',
+            maxHeight: '400px',
             width: '100%',
             overflow: 'auto',
             '& .ql-container': {
-              maxHeight: '100px',
+              maxHeight: '400px',
               width: '100%',
             },
             '& .ql-editor': {
-              maxHeight: '100px',
+              maxHeight: '400px',
               width: '100%',
             }
           }}>
