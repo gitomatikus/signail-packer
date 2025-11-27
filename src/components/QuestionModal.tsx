@@ -68,10 +68,14 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
         content: '',
         duration: 15,
     });
+    const [incorrectInputValue, setIncorrectInputValue] = useState<string>('-100');
+    const [correctInputValue, setCorrectInputValue] = useState<string>('100');
 
     useEffect(() => {
         if (question) {
             setFormData(question);
+            setIncorrectInputValue(question.price?.incorrect?.toString() || '0');
+            setCorrectInputValue(question.price?.correct?.toString() || '0');
         } else {
             // New question - set default price based on index
             const defaultPrice = (questionIndex + 1) * 100;
@@ -87,6 +91,8 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
                 rules: [],
                 after_round: [],
             });
+            setIncorrectInputValue((-defaultPrice).toString());
+            setCorrectInputValue(defaultPrice.toString());
         }
         setTabValue(0);
 
@@ -194,8 +200,8 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
                         marginBottom: 2,
                     }}
                 >
-                    <Tab label="Rules" />
-                    <Tab label="After Round" />
+                    <Tab label="Question" />
+                    <Tab label="Answer" />
                     <Tab label="Price" />
                 </Tabs>
 
@@ -203,9 +209,10 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
                     <RuleForm
                         rules={formData.rules || []}
                         onRulesChange={handleRulesChange}
-                        title="Question Rules"
+                        title="Question"
                         draftRule={draftRule}
                         onDraftRuleChange={setDraftRule}
+                        buttonLabel="Add Question"
                     />
                 </TabPanel>
 
@@ -213,9 +220,10 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
                     <RuleForm
                         rules={formData.after_round || []}
                         onRulesChange={handleAfterRoundChange}
-                        title="After Round Rules"
+                        title="Answer"
                         draftRule={draftAfterRound}
                         onDraftRuleChange={setDraftAfterRound}
+                        buttonLabel="Add Answer"
                     />
                 </TabPanel>
 
@@ -235,25 +243,37 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
                         <TextField
                             label="Correct Points"
                             type="number"
-                            value={formData.price?.correct || 0}
-                            onChange={(e) =>
-                                setFormData({
-                                    ...formData,
-                                    price: { ...formData.price!, correct: parseInt(e.target.value) },
-                                })
-                            }
+                            value={correctInputValue}
+                            onChange={(e) => {
+                                const val = e.target.value;
+                                setCorrectInputValue(val);
+                                const parsed = parseInt(val);
+                                if (!isNaN(parsed)) {
+                                    setFormData({
+                                        ...formData,
+                                        price: { ...formData.price!, correct: parsed },
+                                    });
+                                }
+                            }}
+                            onWheel={(e) => (e.target as HTMLInputElement).blur()}
                             fullWidth
                         />
                         <TextField
                             label="Incorrect Points"
                             type="number"
-                            value={formData.price?.incorrect || 0}
-                            onChange={(e) =>
-                                setFormData({
-                                    ...formData,
-                                    price: { ...formData.price!, incorrect: parseInt(e.target.value) },
-                                })
-                            }
+                            value={incorrectInputValue}
+                            onChange={(e) => {
+                                const val = e.target.value;
+                                setIncorrectInputValue(val);
+                                const parsed = parseInt(val);
+                                if (!isNaN(parsed)) {
+                                    setFormData({
+                                        ...formData,
+                                        price: { ...formData.price!, incorrect: parsed },
+                                    });
+                                }
+                            }}
+                            onWheel={(e) => (e.target as HTMLInputElement).blur()}
                             fullWidth
                         />
                     </Box>

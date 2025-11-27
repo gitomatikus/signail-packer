@@ -89,6 +89,7 @@ interface RuleFormProps {
   title: string;
   draftRule: Partial<Rule>;
   onDraftRuleChange: (rule: Partial<Rule>) => void;
+  buttonLabel?: string;
 }
 
 const RuleForm: React.FC<RuleFormProps> = ({
@@ -96,7 +97,8 @@ const RuleForm: React.FC<RuleFormProps> = ({
   onRulesChange,
   title,
   draftRule,
-  onDraftRuleChange
+  onDraftRuleChange,
+  buttonLabel = "Add Rule"
 }) => {
 
   function convertMediaTags(htmlString: string): string {
@@ -270,7 +272,7 @@ const RuleForm: React.FC<RuleFormProps> = ({
             startIcon={<AddIcon />}
             onClick={handleAddRule}
           >
-            Add Rule
+            {buttonLabel}
           </Button>
         </Box>
       </Paper>

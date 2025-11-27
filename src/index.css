@@ -156,3 +156,14 @@ code {
   border-radius: var(--border-radius-lg);
   box-shadow: var(--shadow-card);
 }
+
+/* Hide number input spinners */
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type=number] {
+  -moz-appearance: textfield;
+}

@@ -43,7 +43,7 @@ const QuestionButton: React.FC<QuestionButtonProps> = ({ question, price, onClic
                     textShadow: '0 2px 4px rgba(0, 0, 0, 0.3)',
                 }}
             >
-                {price}
+                {question?.price?.text || price}
             </Box>
         </Box>
     );
