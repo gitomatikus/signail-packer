@@ -57,6 +57,32 @@ class CoustomVideo extends Video {
 
 Quill.register('formats/video', CoustomVideo);
 
+class CustomAudio extends Video {
+  static blotName = 'audio';
+  static className = 'ql-audio';
+  static tagName = 'DIV';
+
+  static create(value: string) {
+    const node = super.create(value) as HTMLElement;
+
+    // Clear any existing content
+    while (node.firstChild) {
+      node.removeChild(node.firstChild);
+    }
+
+    const audio = document.createElement('audio');
+    audio.setAttribute('controls', 'true');
+    audio.setAttribute('autoplay', 'true');
+    audio.setAttribute('style', "width: 100%");
+    audio.setAttribute('src', value);
+    node.appendChild(audio);
+
+    return node;
+  }
+}
+
+Quill.register('formats/audio', CustomAudio);
+
 interface RuleFormProps {
   rules: Rule[];
   onRulesChange: (rules: Rule[]) => void;
@@ -109,9 +135,14 @@ const RuleForm: React.FC<RuleFormProps> = ({
 
   const quillRef = useRef<ReactQuill>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const audioInputRef = useRef<HTMLInputElement>(null);
 
   const videoHandler = () => {
     fileInputRef.current?.click();
+  };
+
+  const audioHandler = () => {
+    audioInputRef.current?.click();
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -134,17 +165,38 @@ const RuleForm: React.FC<RuleFormProps> = ({
     }
   };
 
+  const handleAudioChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const base64 = reader.result as string;
+        const quill = quillRef.current?.getEditor();
+        if (quill) {
+          const range = quill.getSelection(true);
+          quill.insertEmbed(range.index, 'audio', base64);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+    // Reset input so same file can be selected again
+    if (audioInputRef.current) {
+      audioInputRef.current.value = '';
+    }
+  };
+
   const modules = useMemo(() => ({
     toolbar: {
       container: [
         [{ 'header': [1, 2, false] }],
         ['bold', 'italic', 'underline', 'strike', 'blockquote'],
         [{ 'list': 'ordered' }, { 'list': 'bullet' }, { 'indent': '-1' }, { 'indent': '+1' }],
-        ['link', 'image', 'video'],
+        ['link', 'image', 'video', 'audio'],
         ['clean'],
       ],
       handlers: {
         video: videoHandler,
+        audio: audioHandler,
       },
     },
   }), []);
@@ -153,7 +205,7 @@ const RuleForm: React.FC<RuleFormProps> = ({
     'header',
     'bold', 'italic', 'underline', 'strike', 'blockquote',
     'list', 'bullet', 'indent',
-    'link', 'image', 'video',
+    'link', 'image', 'video', 'audio',
   ];
 
   return (
@@ -195,6 +247,13 @@ const RuleForm: React.FC<RuleFormProps> = ({
               ref={fileInputRef}
               style={{ display: 'none' }}
               onChange={handleFileChange}
+            />
+            <input
+              type="file"
+              accept="audio/*"
+              ref={audioInputRef}
+              style={{ display: 'none' }}
+              onChange={handleAudioChange}
             />
           </Box>
 
