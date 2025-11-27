@@ -15,6 +15,16 @@ interface SIQSource {
   loadMedia: MediaLoader;
 }
 
+const safeDecodeURI = (value: string): string => {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+};
+
+const normalizeName = (value: string): string => safeDecodeURI(value).replace(/\\/g, '/').trim().toLowerCase();
+
 const getChildElements = (node: Element | Document, localName?: string): Element[] => {
   const elements = Array.from(node.childNodes).filter((child): child is Element => child.nodeType === Node.ELEMENT_NODE);
   if (!localName) return elements;
@@ -359,23 +369,40 @@ export const convertSIQFromFile = async (file: File): Promise<Pack> => {
 
   const loadContentXml = async () => contentEntry.async('text');
 
-  const loadMedia: MediaLoader = async (type, fileName) => {
-    const preferredFolder = MEDIA_FOLDERS[type];
-    const candidatePaths = [
-      `${preferredFolder}/${fileName}`,
-      `${preferredFolder.toLowerCase()}/${fileName}`,
-      `${preferredFolder}/${fileName}`.replace(/\\/g, '/'),
-      fileName,
-    ];
+  const findZipEntry = (preferredFolder: string, fileName: string): JSZip.JSZipObject | null => {
+    const nameVariants = Array.from(
+      new Set<string>([
+        fileName,
+        safeDecodeURI(fileName),
+        encodeURI(safeDecodeURI(fileName)),
+        safeDecodeURI(fileName).trim(),
+        encodeURI(safeDecodeURI(fileName).trim()),
+      ])
+    );
 
-    let matchingEntry: JSZip.JSZipObject | null = null;
-    for (const path of candidatePaths) {
-      const entry = zip.file(path);
-      if (entry) {
-        matchingEntry = entry;
-        break;
+    const folderVariants = [preferredFolder, preferredFolder.toLowerCase(), ''];
+    for (const folder of folderVariants) {
+      for (const name of nameVariants) {
+        const candidate = folder ? `${folder}/${name}` : name;
+        const entry = zip.file(candidate);
+        if (entry) return entry;
       }
     }
+
+    const targetNormalized = normalizeName(fileName.split('/').pop() || fileName);
+    const candidates = zip.filter((relativePath, entry) => {
+      if (entry.dir) return false;
+      if (relativePath.includes('Zone.Identifier')) return false;
+      const base = relativePath.split('/').pop() || relativePath;
+      return normalizeName(base) === targetNormalized;
+    });
+
+    return candidates[0] || null;
+  };
+
+  const loadMedia: MediaLoader = async (type, fileName) => {
+    const preferredFolder = MEDIA_FOLDERS[type];
+    const matchingEntry = findZipEntry(preferredFolder, fileName);
 
     if (!matchingEntry) {
       console.warn(`Media file not found in SIQ archive: ${fileName}`);

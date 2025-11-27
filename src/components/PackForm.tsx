@@ -249,7 +249,6 @@ const PackForm: React.FC = () => {
       };
       setPackData(safePack);
       setCurrentRoundIndex(0);
-      downloadPack(safePack);
     } catch (error) {
       console.error('Error repacking SIQ package:', error);
       const message = error instanceof Error ? error.message : 'Please make sure the SIQ archive is valid.';
