@@ -1,6 +1,6 @@
 import React, { useRef } from 'react';
 import { Box, TextField, Button, Typography } from '@mui/material';
-import { Upload, Download, DeleteForever } from '@mui/icons-material';
+import { Upload, Download, DeleteForever, Autorenew } from '@mui/icons-material';
 
 interface PackHeaderProps {
     packName: string;
@@ -10,6 +10,8 @@ interface PackHeaderProps {
     onUpload: (event: React.ChangeEvent<HTMLInputElement>) => void;
     onDownload: () => void;
     onClear: () => void;
+    onRepackFile: (file: File) => void;
+    repacking: boolean;
 }
 
 const PackHeader: React.FC<PackHeaderProps> = ({
@@ -20,8 +22,21 @@ const PackHeader: React.FC<PackHeaderProps> = ({
     onUpload,
     onDownload,
     onClear,
+    onRepackFile,
+    repacking,
 }) => {
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const repackInputRef = useRef<HTMLInputElement>(null);
+
+    const handleRepackChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (file) {
+            onRepackFile(file);
+        }
+        if (repackInputRef.current) {
+            repackInputRef.current.value = '';
+        }
+    };
 
     return (
         <Box
@@ -65,6 +80,13 @@ const PackHeader: React.FC<PackHeaderProps> = ({
                     style={{ display: 'none' }}
                     ref={fileInputRef}
                 />
+                <input
+                    type="file"
+                    accept=".siq"
+                    onChange={handleRepackChange}
+                    style={{ display: 'none' }}
+                    ref={repackInputRef}
+                />
                 <Button
                     variant="outlined"
                     startIcon={<Upload />}
@@ -72,6 +94,15 @@ const PackHeader: React.FC<PackHeaderProps> = ({
                     size="small"
                 >
                     Upload
+                </Button>
+                <Button
+                    variant="outlined"
+                    startIcon={<Autorenew />}
+                    onClick={() => repackInputRef.current?.click()}
+                    size="small"
+                    disabled={repacking}
+                >
+                    {repacking ? 'Repacking...' : 'Repack'}
                 </Button>
                 <Button
                     variant="outlined"

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Container } from '@mui/material';
 import { Pack, Round, Question, Theme } from '../types/pack';
 import { savePack, loadPack, initDB, clearStorage } from '../services/storage';
+import { convertSIQFromFile } from '../services/siqConverter';
 import PackHeader from './PackHeader';
 import GameBoardGrid from './GameBoardGrid';
 import QuestionModal from './QuestionModal';
@@ -21,6 +22,7 @@ const PackForm: React.FC = () => {
   const [dbReady, setDbReady] = useState(false);
   const saveTimeoutRef = useRef<number | null>(null);
   const latestPackRef = useRef(packData);
+  const [repacking, setRepacking] = useState(false);
 
   // Question Modal State
   const [modalOpen, setModalOpen] = useState(false);
@@ -218,17 +220,43 @@ const PackForm: React.FC = () => {
     setEditingQuestion(null);
   };
 
-  const handleDownload = () => {
-    const jsonString = JSON.stringify(packData, null, 2);
+  const buildDownloadFileName = (name: string) => (name ? name.toLowerCase().replace(/\s+/g, '-') : 'pack');
+
+  const downloadPack = (pack: Pack) => {
+    const jsonString = JSON.stringify(pack, null, 2);
     const blob = new Blob([jsonString], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `${packData.name.toLowerCase().replace(/\s+/g, '-') || 'pack'}.json`;
+    link.download = `${buildDownloadFileName(pack.name)}.json`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
+  };
+
+  const handleDownload = () => {
+    downloadPack(packData);
+  };
+
+  const handleRepackFile = async (file: File) => {
+    setRepacking(true);
+    try {
+      const convertedPack = await convertSIQFromFile(file);
+      const safePack = {
+        ...convertedPack,
+        rounds: convertedPack.rounds && convertedPack.rounds.length > 0 ? convertedPack.rounds : [{ name: 'Round 1', themes: [] }],
+      };
+      setPackData(safePack);
+      setCurrentRoundIndex(0);
+      downloadPack(safePack);
+    } catch (error) {
+      console.error('Error repacking SIQ package:', error);
+      const message = error instanceof Error ? error.message : 'Please make sure the SIQ archive is valid.';
+      alert(`Failed to repack SIQ package. ${message}`);
+    } finally {
+      setRepacking(false);
+    }
   };
 
   const handleClearStorage = async () => {
@@ -262,7 +290,7 @@ const PackForm: React.FC = () => {
     }
   };
 
-  const currentRound = packData.rounds[currentRoundIndex];
+  const currentRound: Round = packData.rounds[currentRoundIndex] || { name: 'Round 1', themes: [] };
 
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
@@ -273,7 +301,9 @@ const PackForm: React.FC = () => {
         onAuthorChange={(author) => setPackData((prev) => ({ ...prev, author }))}
         onUpload={handleFileUpload}
         onDownload={handleDownload}
+        onRepackFile={handleRepackFile}
         onClear={handleClearStorage}
+        repacking={repacking}
       />
 
       <GameBoardGrid
