@@ -9,13 +9,16 @@ import {
     useSensor,
     useSensors,
     DragEndEvent,
+    DragStartEvent,
+    DragOverlay,
 } from '@dnd-kit/core';
 import {
     sortableKeyboardCoordinates,
 } from '@dnd-kit/sortable';
-import { Round } from '../types/pack';
+import { Round, Question, Theme } from '../types/pack';
 import ThemeRow from './ThemeRow';
 import AddButton from './AddButton';
+import QuestionButton from './QuestionButton';
 
 interface GameBoardGridProps {
     currentRound: Round;
@@ -47,6 +50,7 @@ const GameBoardGrid: React.FC<GameBoardGridProps> = ({
     onDragEnd,
 }) => {
     const [isEditingName, setIsEditingName] = useState(false);
+    const [activeId, setActiveId] = useState<string | null>(null);
 
     const sensors = useSensors(
         useSensor(PointerSensor, {
@@ -58,6 +62,30 @@ const GameBoardGrid: React.FC<GameBoardGridProps> = ({
             coordinateGetter: sortableKeyboardCoordinates,
         })
     );
+
+    const handleDragStart = (event: DragStartEvent) => {
+        setActiveId(event.active.id as string);
+    };
+
+    const handleDragEndLocal = (event: DragEndEvent) => {
+        setActiveId(null);
+        onDragEnd(event);
+    };
+
+    // Find the question for the overlay
+    let activeQuestion: Question | undefined;
+    let activePrice: number = 0;
+    if (activeId && activeId.startsWith('q-')) {
+        const qId = parseInt(activeId.replace('q-', ''), 10);
+        currentRound.themes.forEach((theme: Theme) => {
+            theme.questions.forEach((q: Question, idx: number) => {
+                if (q.id === qId) {
+                    activeQuestion = q;
+                    activePrice = (idx + 1) * 100;
+                }
+            });
+        });
+    }
 
     return (
         <Box>
@@ -91,9 +119,9 @@ const GameBoardGrid: React.FC<GameBoardGridProps> = ({
                 {isEditingName ? (
                     <TextField
                         value={currentRound.name}
-                        onChange={(e) => onRoundNameChange(e.target.value)}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => onRoundNameChange(e.target.value)}
                         onBlur={() => setIsEditingName(false)}
-                        onKeyPress={(e) => {
+                        onKeyPress={(e: React.KeyboardEvent) => {
                             if (e.key === 'Enter') {
                                 setIsEditingName(false);
                             }
@@ -174,7 +202,8 @@ const GameBoardGrid: React.FC<GameBoardGridProps> = ({
             <DndContext
                 sensors={sensors}
                 collisionDetection={closestCenter}
-                onDragEnd={onDragEnd}
+                onDragStart={handleDragStart}
+                onDragEnd={handleDragEndLocal}
             >
                 <Box
                     sx={{
@@ -200,31 +229,35 @@ const GameBoardGrid: React.FC<GameBoardGridProps> = ({
                             </Typography>
                         </Box>
                     ) : (
-                        currentRound.themes.map((theme, themeIndex) => (
+                        currentRound.themes.map((theme: Theme, themeIndex: number) => (
                             <ThemeRow
                                 key={themeIndex}
                                 theme={theme}
                                 themeIndex={themeIndex}
-                                onThemeNameChange={(name) => onThemeNameChange(themeIndex, name)}
-                                onQuestionClick={(questionIndex) => onQuestionClick(themeIndex, questionIndex)}
+                                onThemeNameChange={(name: string) => onThemeNameChange(themeIndex, name)}
+                                onQuestionClick={(questionIndex: number) => onQuestionClick(themeIndex, questionIndex)}
                                 onAddQuestion={() => onAddQuestion(themeIndex)}
                                 onDeleteTheme={() => onDeleteTheme(themeIndex)}
                             />
                         ))
                     )}
 
-                    {/* Add Theme Button */}
-                    <Box
-                        sx={{
-                            display: 'flex',
-                            justifyContent: 'flex-start',
-                            marginTop: '24px',
-                            paddingLeft: '16px',
-                        }}
-                    >
-                        <AddButton onClick={onAddTheme} size="large" label="Add Theme" />
+                    <Box sx={{ marginTop: '24px', display: 'flex', justifyContent: 'center' }}>
+                        <AddButton onClick={onAddTheme} label="Add New Theme" size="large" />
                     </Box>
                 </Box>
+
+                <DragOverlay dropAnimation={null}>
+                    {activeId && activeId.startsWith('q-') && activeQuestion ? (
+                        <QuestionButton
+                            id={activeId}
+                            question={activeQuestion}
+                            price={activePrice}
+                            onClick={() => { }}
+                            hasContent={true}
+                        />
+                    ) : null}
+                </DragOverlay>
             </DndContext>
         </Box>
     );

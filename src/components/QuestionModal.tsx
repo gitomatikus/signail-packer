@@ -230,17 +230,6 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
                 <TabPanel value={tabValue} index={2}>
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                         <TextField
-                            label="Price Text"
-                            value={formData.price?.text || ''}
-                            onChange={(e) =>
-                                setFormData({
-                                    ...formData,
-                                    price: { ...formData.price!, text: e.target.value },
-                                })
-                            }
-                            fullWidth
-                        />
-                        <TextField
                             label="Correct Points"
                             type="number"
                             value={correctInputValue}
@@ -251,11 +240,28 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
                                 if (!isNaN(parsed)) {
                                     setFormData({
                                         ...formData,
-                                        price: { ...formData.price!, correct: parsed },
+                                        price: {
+                                            ...formData.price!,
+                                            correct: parsed,
+                                            text: val,
+                                            incorrect: -parsed
+                                        },
                                     });
+                                    setIncorrectInputValue((-parsed).toString());
                                 }
                             }}
                             onWheel={(e) => (e.target as HTMLInputElement).blur()}
+                            fullWidth
+                        />
+                        <TextField
+                            label="Price Text"
+                            value={formData.price?.text || ''}
+                            onChange={(e) =>
+                                setFormData({
+                                    ...formData,
+                                    price: { ...formData.price!, text: e.target.value },
+                                })
+                            }
                             fullWidth
                         />
                         <TextField

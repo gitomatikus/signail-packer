@@ -41,7 +41,7 @@ const PackForm: React.FC = () => {
     pack.rounds.forEach(round => {
       round.themes.forEach(theme => {
         theme.questions.forEach(q => {
-          if (q.id >= nextId) nextId = q.id + 1;
+          if (q.id && q.id >= nextId) nextId = q.id + 1;
         });
       });
     });
@@ -149,7 +149,7 @@ const PackForm: React.FC = () => {
         name: `Round ${packData.rounds.length + 1}`,
         themes: [],
       };
-      setPackData((prev) => ({
+      setPackData((prev: Pack) => ({
         ...prev,
         rounds: [...prev.rounds, newRound],
       }));
@@ -158,7 +158,7 @@ const PackForm: React.FC = () => {
   };
 
   const handleRoundNameChange = (name: string) => {
-    setPackData((prev) => {
+    setPackData((prev: Pack) => {
       const updatedRounds = [...prev.rounds];
       updatedRounds[currentRoundIndex].name = name;
       return { ...prev, rounds: updatedRounds };
@@ -166,7 +166,7 @@ const PackForm: React.FC = () => {
   };
 
   const handleThemeNameChange = (themeIndex: number, name: string) => {
-    setPackData((prev) => {
+    setPackData((prev: Pack) => {
       const updatedRounds = [...prev.rounds];
       updatedRounds[currentRoundIndex].themes[themeIndex].name = name;
       return { ...prev, rounds: updatedRounds };
@@ -180,7 +180,7 @@ const PackForm: React.FC = () => {
       ordered: false,
       questions: [],
     };
-    setPackData((prev) => {
+    setPackData((prev: Pack) => {
       const updatedRounds = [...prev.rounds];
       updatedRounds[currentRoundIndex].themes.push(newTheme);
       return { ...prev, rounds: updatedRounds };
@@ -188,10 +188,10 @@ const PackForm: React.FC = () => {
   };
 
   const handleDeleteTheme = (themeIndex: number) => {
-    setPackData((prev) => {
+    setPackData((prev: Pack) => {
       const updatedRounds = [...prev.rounds];
       updatedRounds[currentRoundIndex].themes = updatedRounds[currentRoundIndex].themes.filter(
-        (_, i) => i !== themeIndex
+        (_: any, i: number) => i !== themeIndex
       );
       return { ...prev, rounds: updatedRounds };
     });
@@ -224,14 +224,14 @@ const PackForm: React.FC = () => {
   const handleSaveQuestion = (question: Question) => {
     if (!editingQuestion) return;
 
-    setPackData((prev) => {
+    setPackData((prev: Pack) => {
       const updatedRounds = [...prev.rounds];
       const theme = updatedRounds[currentRoundIndex].themes[editingQuestion.themeIndex];
 
       // Ensure the question has an ID
       if (!question.id) {
         let maxId = 0;
-        updatedRounds.forEach(r => r.themes.forEach(t => t.questions.forEach(q => {
+        updatedRounds.forEach((r: Round) => r.themes.forEach((t: Theme) => t.questions.forEach((q: Question) => {
           if (q.id > maxId) maxId = q.id;
         })));
         question.id = maxId + 1;
@@ -262,7 +262,7 @@ const PackForm: React.FC = () => {
     if (!over) return;
 
     if (active.id !== over.id) {
-      setPackData((prev) => {
+      setPackData((prev: Pack) => {
         const updatedRounds = [...prev.rounds];
         const currentRound = updatedRounds[currentRoundIndex];
 
@@ -272,8 +272,8 @@ const PackForm: React.FC = () => {
         let overQuestionIndex = -1;
 
         // Find source and destination
-        currentRound.themes.forEach((theme, tIdx) => {
-          theme.questions.forEach((q, qIdx) => {
+        currentRound.themes.forEach((theme: Theme, tIdx: number) => {
+          theme.questions.forEach((q: Question, qIdx: number) => {
             if (`q-${q.id}` === active.id) {
               activeThemeIndex = tIdx;
               activeQuestionIndex = qIdx;
@@ -396,8 +396,8 @@ const PackForm: React.FC = () => {
       <PackHeader
         packName={packData.name}
         author={packData.author}
-        onPackNameChange={(name) => setPackData((prev) => ({ ...prev, name }))}
-        onAuthorChange={(author) => setPackData((prev) => ({ ...prev, author }))}
+        onPackNameChange={(name: string) => setPackData((prev: Pack) => ({ ...prev, name }))}
+        onAuthorChange={(author: string) => setPackData((prev: Pack) => ({ ...prev, author }))}
         onUpload={handleFileUpload}
         onDownload={handleDownload}
         onRepackFile={handleRepackFile}

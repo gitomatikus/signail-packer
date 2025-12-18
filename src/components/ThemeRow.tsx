@@ -64,9 +64,9 @@ const ThemeRow: React.FC<ThemeRowProps> = ({
                 {isEditingName ? (
                     <TextField
                         value={theme.name}
-                        onChange={(e) => onThemeNameChange(e.target.value)}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => onThemeNameChange(e.target.value)}
                         onBlur={() => setIsEditingName(false)}
-                        onKeyPress={(e) => {
+                        onKeyPress={(e: React.KeyboardEvent) => {
                             if (e.key === 'Enter') {
                                 setIsEditingName(false);
                             }

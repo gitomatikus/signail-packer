@@ -46,6 +46,7 @@ const QuestionButton: React.FC<QuestionButtonProps> = ({ id, question, price, on
                 alignItems: 'center',
                 justifyContent: 'center',
                 cursor: 'grab',
+                touchAction: 'none',
                 transition: 'transform 0.3s ease, box-shadow 0.3s ease, border 0.3s ease',
                 border: hasContent ? '2px solid rgba(255, 255, 255, 0.3)' : '2px solid transparent',
                 '&:hover': {
