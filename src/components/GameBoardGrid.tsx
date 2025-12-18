@@ -1,6 +1,18 @@
 import React, { useState } from 'react';
 import { Box, Typography, IconButton, TextField } from '@mui/material';
 import { ChevronLeft, ChevronRight, Edit as EditIcon } from '@mui/icons-material';
+import {
+    DndContext,
+    closestCenter,
+    KeyboardSensor,
+    PointerSensor,
+    useSensor,
+    useSensors,
+    DragEndEvent,
+} from '@dnd-kit/core';
+import {
+    sortableKeyboardCoordinates,
+} from '@dnd-kit/sortable';
 import { Round } from '../types/pack';
 import ThemeRow from './ThemeRow';
 import AddButton from './AddButton';
@@ -17,6 +29,7 @@ interface GameBoardGridProps {
     onAddQuestion: (themeIndex: number) => void;
     onDeleteTheme: (themeIndex: number) => void;
     onAddTheme: () => void;
+    onDragEnd: (event: DragEndEvent) => void;
 }
 
 const GameBoardGrid: React.FC<GameBoardGridProps> = ({
@@ -31,8 +44,20 @@ const GameBoardGrid: React.FC<GameBoardGridProps> = ({
     onAddQuestion,
     onDeleteTheme,
     onAddTheme,
+    onDragEnd,
 }) => {
     const [isEditingName, setIsEditingName] = useState(false);
+
+    const sensors = useSensors(
+        useSensor(PointerSensor, {
+            activationConstraint: {
+                distance: 8,
+            },
+        }),
+        useSensor(KeyboardSensor, {
+            coordinateGetter: sortableKeyboardCoordinates,
+        })
+    );
 
     return (
         <Box>
@@ -146,54 +171,61 @@ const GameBoardGrid: React.FC<GameBoardGridProps> = ({
             </Box>
 
             {/* Themes Grid */}
-            <Box
-                sx={{
-                    background: 'rgba(19, 26, 54, 0.3)',
-                    borderRadius: '16px',
-                    padding: '24px',
-                    border: '1px solid rgba(139, 92, 246, 0.2)',
-                }}
+            <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={onDragEnd}
             >
-                {currentRound.themes.length === 0 ? (
-                    <Box
-                        sx={{
-                            textAlign: 'center',
-                            padding: '60px',
-                            color: '#a8b2d1',
-                        }}
-                    >
-                        <Typography variant="h6" sx={{ marginBottom: 2 }}>
-                            No themes yet
-                        </Typography>
-                        <Typography variant="body2" sx={{ marginBottom: 3 }}>
-                            Click the + button below to create your first theme
-                        </Typography>
-                    </Box>
-                ) : (
-                    currentRound.themes.map((theme, themeIndex) => (
-                        <ThemeRow
-                            key={themeIndex}
-                            theme={theme}
-                            onThemeNameChange={(name) => onThemeNameChange(themeIndex, name)}
-                            onQuestionClick={(questionIndex) => onQuestionClick(themeIndex, questionIndex)}
-                            onAddQuestion={() => onAddQuestion(themeIndex)}
-                            onDeleteTheme={() => onDeleteTheme(themeIndex)}
-                        />
-                    ))
-                )}
-
-                {/* Add Theme Button */}
                 <Box
                     sx={{
-                        display: 'flex',
-                        justifyContent: 'flex-start',
-                        marginTop: '24px',
-                        paddingLeft: '16px',
+                        background: 'rgba(19, 26, 54, 0.3)',
+                        borderRadius: '16px',
+                        padding: '24px',
+                        border: '1px solid rgba(139, 92, 246, 0.2)',
                     }}
                 >
-                    <AddButton onClick={onAddTheme} size="large" label="Add Theme" />
+                    {currentRound.themes.length === 0 ? (
+                        <Box
+                            sx={{
+                                textAlign: 'center',
+                                padding: '60px',
+                                color: '#a8b2d1',
+                            }}
+                        >
+                            <Typography variant="h6" sx={{ marginBottom: 2 }}>
+                                No themes yet
+                            </Typography>
+                            <Typography variant="body2" sx={{ marginBottom: 3 }}>
+                                Click the + button below to create your first theme
+                            </Typography>
+                        </Box>
+                    ) : (
+                        currentRound.themes.map((theme, themeIndex) => (
+                            <ThemeRow
+                                key={themeIndex}
+                                theme={theme}
+                                themeIndex={themeIndex}
+                                onThemeNameChange={(name) => onThemeNameChange(themeIndex, name)}
+                                onQuestionClick={(questionIndex) => onQuestionClick(themeIndex, questionIndex)}
+                                onAddQuestion={() => onAddQuestion(themeIndex)}
+                                onDeleteTheme={() => onDeleteTheme(themeIndex)}
+                            />
+                        ))
+                    )}
+
+                    {/* Add Theme Button */}
+                    <Box
+                        sx={{
+                            display: 'flex',
+                            justifyContent: 'flex-start',
+                            marginTop: '24px',
+                            paddingLeft: '16px',
+                        }}
+                    >
+                        <AddButton onClick={onAddTheme} size="large" label="Add Theme" />
+                    </Box>
                 </Box>
-            </Box>
+            </DndContext>
         </Box>
     );
 };

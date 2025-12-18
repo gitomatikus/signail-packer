@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Container } from '@mui/material';
+import { DragEndEvent } from '@dnd-kit/core';
+import { arrayMove } from '@dnd-kit/sortable';
 import { Pack, Round, Question, Theme } from '../types/pack';
 import { savePack, loadPack, initDB, clearStorage } from '../services/storage';
 import { convertSIQFromFile } from '../services/siqConverter';
@@ -32,6 +34,32 @@ const PackForm: React.FC = () => {
     question: Question | null;
   } | null>(null);
 
+  // Helper to ensure all questions have unique IDs
+  const ensureQuestionIds = (pack: Pack): Pack => {
+    let nextId = 1;
+    // Find highest existing ID
+    pack.rounds.forEach(round => {
+      round.themes.forEach(theme => {
+        theme.questions.forEach(q => {
+          if (q.id >= nextId) nextId = q.id + 1;
+        });
+      });
+    });
+
+    const updatedRounds = pack.rounds.map(round => ({
+      ...round,
+      themes: round.themes.map(theme => ({
+        ...theme,
+        questions: theme.questions.map(q => {
+          if (q.id) return q;
+          return { ...q, id: nextId++ };
+        })
+      }))
+    }));
+
+    return { ...pack, rounds: updatedRounds };
+  };
+
   // Initialize database
   useEffect(() => {
     const initializeDatabase = async () => {
@@ -52,7 +80,7 @@ const PackForm: React.FC = () => {
         try {
           const savedPack = await loadPack();
           if (savedPack) {
-            setPackData(savedPack);
+            setPackData(ensureQuestionIds(savedPack));
           }
         } catch (error) {
           console.error('Error loading saved pack:', error);
@@ -200,6 +228,15 @@ const PackForm: React.FC = () => {
       const updatedRounds = [...prev.rounds];
       const theme = updatedRounds[currentRoundIndex].themes[editingQuestion.themeIndex];
 
+      // Ensure the question has an ID
+      if (!question.id) {
+        let maxId = 0;
+        updatedRounds.forEach(r => r.themes.forEach(t => t.questions.forEach(q => {
+          if (q.id > maxId) maxId = q.id;
+        })));
+        question.id = maxId + 1;
+      }
+
       if (editingQuestion.questionIndex < theme.questions.length) {
         // Update existing question
         theme.questions[editingQuestion.questionIndex] = question;
@@ -218,6 +255,69 @@ const PackForm: React.FC = () => {
   const handleCloseModal = () => {
     setModalOpen(false);
     setEditingQuestion(null);
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over) return;
+
+    if (active.id !== over.id) {
+      setPackData((prev) => {
+        const updatedRounds = [...prev.rounds];
+        const currentRound = updatedRounds[currentRoundIndex];
+
+        let activeThemeIndex = -1;
+        let activeQuestionIndex = -1;
+        let overThemeIndex = -1;
+        let overQuestionIndex = -1;
+
+        // Find source and destination
+        currentRound.themes.forEach((theme, tIdx) => {
+          theme.questions.forEach((q, qIdx) => {
+            if (`q-${q.id}` === active.id) {
+              activeThemeIndex = tIdx;
+              activeQuestionIndex = qIdx;
+            }
+            if (`q-${q.id}` === over.id) {
+              overThemeIndex = tIdx;
+              overQuestionIndex = qIdx;
+            }
+          });
+
+          // Also check for empty slots if needed, but for now we only care about questions
+        });
+
+        if (activeThemeIndex === -1) return prev; // Should not happen
+
+        if (overThemeIndex === -1) {
+          // Check if dropped over an empty slot
+          // empty-${themeIndex}-${index}
+          const overId = over.id as string;
+          if (overId.startsWith('empty-')) {
+            const parts = overId.split('-');
+            overThemeIndex = parseInt(parts[1], 10);
+            overQuestionIndex = parseInt(parts[2], 10);
+          }
+        }
+
+        if (overThemeIndex === -1) return prev;
+
+        const activeTheme = currentRound.themes[activeThemeIndex];
+        const overTheme = currentRound.themes[overThemeIndex];
+        const question = activeTheme.questions[activeQuestionIndex];
+
+        if (activeThemeIndex === overThemeIndex) {
+          // Reorder within the same theme
+          activeTheme.questions = arrayMove(activeTheme.questions, activeQuestionIndex, overQuestionIndex);
+        } else {
+          // Move to a different theme
+          activeTheme.questions.splice(activeQuestionIndex, 1);
+          overTheme.questions.splice(overQuestionIndex, 0, question);
+        }
+
+        return { ...prev, rounds: updatedRounds };
+      });
+    }
   };
 
   const buildDownloadFileName = (name: string) => (name ? name.toLowerCase().replace(/\s+/g, '-') : 'pack');
@@ -247,7 +347,7 @@ const PackForm: React.FC = () => {
         ...convertedPack,
         rounds: convertedPack.rounds && convertedPack.rounds.length > 0 ? convertedPack.rounds : [{ name: 'Round 1', themes: [] }],
       };
-      setPackData(safePack);
+      setPackData(ensureQuestionIds(safePack));
       setCurrentRoundIndex(0);
     } catch (error) {
       console.error('Error repacking SIQ package:', error);
@@ -281,7 +381,7 @@ const PackForm: React.FC = () => {
 
       await clearStorage();
       await savePack(jsonData);
-      setPackData(jsonData);
+      setPackData(ensureQuestionIds(jsonData));
       setCurrentRoundIndex(0);
     } catch (error) {
       console.error('Error loading JSON file:', error);
@@ -317,6 +417,7 @@ const PackForm: React.FC = () => {
         onAddQuestion={handleAddQuestion}
         onDeleteTheme={handleDeleteTheme}
         onAddTheme={handleAddTheme}
+        onDragEnd={handleDragEnd}
       />
 
       <QuestionModal

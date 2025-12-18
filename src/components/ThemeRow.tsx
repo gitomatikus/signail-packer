@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { Box, TextField, IconButton } from '@mui/material';
 import { Delete as DeleteIcon } from '@mui/icons-material';
+import { SortableContext, horizontalListSortingStrategy } from '@dnd-kit/sortable';
 import { Theme } from '../types/pack';
 import QuestionButton from './QuestionButton';
 import AddButton from './AddButton';
 
 interface ThemeRowProps {
     theme: Theme;
+    themeIndex: number;
     onThemeNameChange: (name: string) => void;
     onQuestionClick: (questionIndex: number) => void;
     onAddQuestion: () => void;
@@ -15,6 +17,7 @@ interface ThemeRowProps {
 
 const ThemeRow: React.FC<ThemeRowProps> = ({
     theme,
+    themeIndex,
     onThemeNameChange,
     onQuestionClick,
     onAddQuestion,
@@ -24,6 +27,12 @@ const ThemeRow: React.FC<ThemeRowProps> = ({
 
     // Standard prices for questions
     const standardPrices = [100, 200, 300, 400, 500];
+
+    // Generate stable IDs for all slots (some might be empty)
+    const questionIds = standardPrices.map((_, index) => {
+        const question = theme.questions[index];
+        return question?.id ? `q-${question.id}` : `empty-${themeIndex}-${index}`;
+    });
 
     return (
         <Box
@@ -114,20 +123,24 @@ const ThemeRow: React.FC<ThemeRowProps> = ({
                     flexWrap: 'wrap',
                 }}
             >
-                {standardPrices.map((price, index) => {
-                    const question = theme.questions[index];
-                    const hasContent = !!(question && ((question.rules && question.rules.length > 0) || (question.after_round && question.after_round.length > 0)));
+                <SortableContext items={questionIds} strategy={horizontalListSortingStrategy}>
+                    {standardPrices.map((price, index) => {
+                        const question = theme.questions[index];
+                        const hasContent = !!(question && ((question.rules && question.rules.length > 0) || (question.after_round && question.after_round.length > 0)));
+                        const id = questionIds[index];
 
-                    return (
-                        <QuestionButton
-                            key={index}
-                            question={question}
-                            price={price}
-                            onClick={() => onQuestionClick(index)}
-                            hasContent={hasContent}
-                        />
-                    );
-                })}
+                        return (
+                            <QuestionButton
+                                key={id}
+                                id={id}
+                                question={question}
+                                price={price}
+                                onClick={() => onQuestionClick(index)}
+                                hasContent={hasContent}
+                            />
+                        );
+                    })}
+                </SortableContext>
 
                 {/* Add Question Button */}
                 <Box sx={{ display: 'flex', alignItems: 'center' }}>

@@ -16,7 +16,7 @@ import {
   Select,
   MenuItem,
 } from '@mui/material';
-import { Add as AddIcon, Delete as DeleteIcon } from '@mui/icons-material';
+import { Add as AddIcon, Delete as DeleteIcon, Edit as EditIcon, Close as CloseIcon } from '@mui/icons-material';
 import { Rule, RuleType } from '../types/pack';
 import ReactQuill, { Quill } from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
@@ -100,6 +100,8 @@ const RuleForm: React.FC<RuleFormProps> = ({
   onDraftRuleChange,
   buttonLabel = "Add Rule"
 }) => {
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const formRef = useRef<HTMLDivElement>(null);
 
   function convertMediaTags(htmlString: string): string {
     const checkLength = Math.min(200, htmlString.length);
@@ -116,18 +118,44 @@ const RuleForm: React.FC<RuleFormProps> = ({
 
   const handleAddRule = () => {
     if (draftRule.type && draftRule.content) {
-      const ruleToAdd = {
+      const ruleToSave = {
         ...draftRule,
         content: convertMediaTags(draftRule.content),
       } as Rule;
-      onRulesChange([...rules, ruleToAdd]);
-      console.log('Rule added:', ruleToAdd);
+
+      if (editingIndex !== null) {
+        const updatedRules = [...rules];
+        updatedRules[editingIndex] = ruleToSave;
+        onRulesChange(updatedRules);
+        setEditingIndex(null);
+      } else {
+        onRulesChange([...rules, ruleToSave]);
+      }
+
       onDraftRuleChange({
         type: RuleType.Embedded,
         content: '',
         duration: 15,
       });
     }
+  };
+
+  const handleEditRule = (index: number) => {
+    const ruleToEdit = rules[index];
+    onDraftRuleChange({
+      ...ruleToEdit,
+    });
+    setEditingIndex(index);
+    formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  const handleCancelEdit = () => {
+    setEditingIndex(null);
+    onDraftRuleChange({
+      type: RuleType.Embedded,
+      content: '',
+      duration: 15,
+    });
   };
 
   const handleDeleteRule = (index: number) => {
@@ -217,7 +245,7 @@ const RuleForm: React.FC<RuleFormProps> = ({
       </Typography>
 
       {/* Add Rule Form */}
-      <Paper sx={{ p: 2, mb: 2 }}>
+      <Paper ref={formRef} sx={{ p: 2, mb: 2, border: editingIndex !== null ? '1px solid #8b5cf6' : 'none' }}>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           <Typography variant="body2" gutterBottom>
             Content
@@ -267,13 +295,26 @@ const RuleForm: React.FC<RuleFormProps> = ({
             onChange={(e) => onDraftRuleChange({ ...draftRule, duration: parseInt(e.target.value) })}
           />
 
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={handleAddRule}
-          >
-            {buttonLabel}
-          </Button>
+          <Box sx={{ display: 'flex', gap: 2 }}>
+            <Button
+              variant="contained"
+              startIcon={editingIndex !== null ? <EditIcon /> : <AddIcon />}
+              onClick={handleAddRule}
+              fullWidth
+            >
+              {editingIndex !== null ? "Update Rule" : buttonLabel}
+            </Button>
+            {editingIndex !== null && (
+              <Button
+                variant="outlined"
+                startIcon={<CloseIcon />}
+                onClick={handleCancelEdit}
+                color="secondary"
+              >
+                Cancel
+              </Button>
+            )}
+          </Box>
         </Box>
       </Paper>
 
@@ -302,7 +343,15 @@ const RuleForm: React.FC<RuleFormProps> = ({
               <ListItemSecondaryAction>
                 <IconButton
                   edge="end"
+                  onClick={() => handleEditRule(index)}
+                  sx={{ mr: 1, color: '#8b5cf6' }}
+                >
+                  <EditIcon />
+                </IconButton>
+                <IconButton
+                  edge="end"
                   onClick={() => handleDeleteRule(index)}
+                  sx={{ color: '#ef4444' }}
                 >
                   <DeleteIcon />
                 </IconButton>
