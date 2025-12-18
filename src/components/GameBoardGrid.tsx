@@ -14,11 +14,33 @@ import {
 } from '@dnd-kit/core';
 import {
     sortableKeyboardCoordinates,
+    verticalListSortingStrategy,
+    SortableContext,
 } from '@dnd-kit/sortable';
 import { Round, Question, Theme } from '../types/pack';
 import ThemeRow from './ThemeRow';
 import AddButton from './AddButton';
 import QuestionButton from './QuestionButton';
+
+// A simple preview for the theme row during drag
+const ThemeRowOverlay: React.FC<{ theme: Theme }> = ({ theme }: { theme: Theme }) => (
+    <Box
+        sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 2,
+            padding: '16px',
+            background: 'rgba(139, 92, 246, 0.2)',
+            borderRadius: '12px',
+            border: '2px solid rgba(139, 92, 246, 0.5)',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)',
+            width: '100%',
+            opacity: 0.8,
+        }}
+    >
+        <Typography sx={{ color: '#ffffff', fontWeight: 600 }}>{theme.name}</Typography>
+    </Box>
+);
 
 interface GameBoardGridProps {
     currentRound: Round;
@@ -48,7 +70,7 @@ const GameBoardGrid: React.FC<GameBoardGridProps> = ({
     onDeleteTheme,
     onAddTheme,
     onDragEnd,
-}) => {
+}: GameBoardGridProps) => {
     const [isEditingName, setIsEditingName] = useState(false);
     const [activeId, setActiveId] = useState<string | null>(null);
 
@@ -86,6 +108,15 @@ const GameBoardGrid: React.FC<GameBoardGridProps> = ({
             });
         });
     }
+
+    // Find the theme for the overlay
+    let activeTheme: Theme | undefined;
+    if (activeId && activeId.startsWith('t-')) {
+        const tId = parseInt(activeId.replace('t-', ''), 10);
+        activeTheme = currentRound.themes.find((t: Theme) => t.id === tId);
+    }
+
+    const themeIds = currentRound.themes.map((t: Theme) => `t-${t.id}`);
 
     return (
         <Box>
@@ -229,17 +260,19 @@ const GameBoardGrid: React.FC<GameBoardGridProps> = ({
                             </Typography>
                         </Box>
                     ) : (
-                        currentRound.themes.map((theme: Theme, themeIndex: number) => (
-                            <ThemeRow
-                                key={themeIndex}
-                                theme={theme}
-                                themeIndex={themeIndex}
-                                onThemeNameChange={(name: string) => onThemeNameChange(themeIndex, name)}
-                                onQuestionClick={(questionIndex: number) => onQuestionClick(themeIndex, questionIndex)}
-                                onAddQuestion={() => onAddQuestion(themeIndex)}
-                                onDeleteTheme={() => onDeleteTheme(themeIndex)}
-                            />
-                        ))
+                        <SortableContext items={themeIds} strategy={verticalListSortingStrategy}>
+                            {currentRound.themes.map((theme: Theme, themeIndex: number) => (
+                                <ThemeRow
+                                    key={`t-${theme.id}`}
+                                    theme={theme}
+                                    themeIndex={themeIndex}
+                                    onThemeNameChange={(name: string) => onThemeNameChange(themeIndex, name)}
+                                    onQuestionClick={(questionIndex: number) => onQuestionClick(themeIndex, questionIndex)}
+                                    onAddQuestion={() => onAddQuestion(themeIndex)}
+                                    onDeleteTheme={() => onDeleteTheme(themeIndex)}
+                                />
+                            ))}
+                        </SortableContext>
                     )}
 
                     <Box sx={{ marginTop: '24px', display: 'flex', justifyContent: 'center' }}>
@@ -256,6 +289,8 @@ const GameBoardGrid: React.FC<GameBoardGridProps> = ({
                             onClick={() => { }}
                             hasContent={true}
                         />
+                    ) : activeId && activeId.startsWith('t-') && activeTheme ? (
+                        <ThemeRowOverlay theme={activeTheme} />
                     ) : null}
                 </DragOverlay>
             </DndContext>

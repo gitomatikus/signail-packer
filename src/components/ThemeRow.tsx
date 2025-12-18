@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Box, TextField, IconButton } from '@mui/material';
-import { Delete as DeleteIcon } from '@mui/icons-material';
-import { SortableContext, horizontalListSortingStrategy } from '@dnd-kit/sortable';
+import { Box, TextField, IconButton, Typography } from '@mui/material';
+import { Delete as DeleteIcon, DragIndicator as DragIndicatorIcon } from '@mui/icons-material';
+import { useSortable, SortableContext, horizontalListSortingStrategy } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { Theme } from '../types/pack';
 import QuestionButton from './QuestionButton';
 import AddButton from './AddButton';
@@ -22,8 +23,23 @@ const ThemeRow: React.FC<ThemeRowProps> = ({
     onQuestionClick,
     onAddQuestion,
     onDeleteTheme,
-}) => {
+}: ThemeRowProps) => {
     const [isEditingName, setIsEditingName] = useState(false);
+
+    const {
+        attributes,
+        listeners,
+        setNodeRef,
+        transform,
+        transition,
+        isDragging,
+    } = useSortable({ id: `t-${theme.id}` });
+
+    const style = {
+        transform: CSS.Translate.toString(transform),
+        transition,
+        opacity: isDragging ? 0.5 : 1,
+    };
 
     // Standard prices for questions
     const standardPrices = [100, 200, 300, 400, 500];
@@ -36,6 +52,8 @@ const ThemeRow: React.FC<ThemeRowProps> = ({
 
     return (
         <Box
+            ref={setNodeRef}
+            style={style}
             sx={{
                 display: 'flex',
                 alignItems: 'center',
@@ -45,12 +63,31 @@ const ThemeRow: React.FC<ThemeRowProps> = ({
                 borderRadius: '12px',
                 marginBottom: '12px',
                 border: '1px solid rgba(139, 92, 246, 0.15)',
+                touchAction: 'none',
                 '&:hover': {
                     background: 'rgba(19, 26, 54, 0.6)',
                     border: '1px solid rgba(139, 92, 246, 0.3)',
                 },
+                zIndex: isDragging ? 10 : 1,
+                position: 'relative',
             }}
         >
+            {/* Drag Handle */}
+            <Box
+                {...attributes}
+                {...listeners}
+                sx={{
+                    cursor: 'grab',
+                    color: 'rgba(139, 92, 246, 0.5)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    '&:hover': {
+                        color: '#8b5cf6',
+                    },
+                }}
+            >
+                <DragIndicatorIcon />
+            </Box>
             {/* Theme Name */}
             <Box
                 sx={{

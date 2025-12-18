@@ -34,27 +34,34 @@ const PackForm: React.FC = () => {
     question: Question | null;
   } | null>(null);
 
-  // Helper to ensure all questions have unique IDs
-  const ensureQuestionIds = (pack: Pack): Pack => {
-    let nextId = 1;
-    // Find highest existing ID
+  // Helper to ensure all themes and questions have unique IDs
+  const ensurePackIds = (pack: Pack): Pack => {
+    let nextThemeId = 1;
+    let nextQuestionId = 1;
+
+    // Find highest existing IDs
     pack.rounds.forEach(round => {
       round.themes.forEach(theme => {
+        if (theme.id && theme.id >= nextThemeId) nextThemeId = theme.id + 1;
         theme.questions.forEach(q => {
-          if (q.id && q.id >= nextId) nextId = q.id + 1;
+          if (q.id && q.id >= nextQuestionId) nextQuestionId = q.id + 1;
         });
       });
     });
 
     const updatedRounds = pack.rounds.map(round => ({
       ...round,
-      themes: round.themes.map(theme => ({
-        ...theme,
-        questions: theme.questions.map(q => {
-          if (q.id) return q;
-          return { ...q, id: nextId++ };
-        })
-      }))
+      themes: round.themes.map(theme => {
+        const themeId = theme.id || nextThemeId++;
+        return {
+          ...theme,
+          id: themeId,
+          questions: theme.questions.map(q => {
+            if (q.id) return q;
+            return { ...q, id: nextQuestionId++ };
+          })
+        };
+      })
     }));
 
     return { ...pack, rounds: updatedRounds };
@@ -80,7 +87,7 @@ const PackForm: React.FC = () => {
         try {
           const savedPack = await loadPack();
           if (savedPack) {
-            setPackData(ensureQuestionIds(savedPack));
+            setPackData(ensurePackIds(savedPack));
           }
         } catch (error) {
           console.error('Error loading saved pack:', error);
@@ -174,13 +181,20 @@ const PackForm: React.FC = () => {
   };
 
   const handleAddTheme = () => {
-    const newTheme: Theme = {
-      name: `Theme ${packData.rounds[currentRoundIndex].themes.length + 1}`,
-      description: '',
-      ordered: false,
-      questions: [],
-    };
     setPackData((prev: Pack) => {
+      let maxThemeId = 0;
+      prev.rounds.forEach(r => r.themes.forEach(t => {
+        if (t.id > maxThemeId) maxThemeId = t.id;
+      }));
+
+      const newTheme: Theme = {
+        id: maxThemeId + 1,
+        name: `Theme ${packData.rounds[currentRoundIndex].themes.length + 1}`,
+        description: '',
+        ordered: false,
+        questions: [],
+      };
+
       const updatedRounds = [...prev.rounds];
       updatedRounds[currentRoundIndex].themes.push(newTheme);
       return { ...prev, rounds: updatedRounds };
@@ -261,11 +275,29 @@ const PackForm: React.FC = () => {
     const { active, over } = event;
     if (!over) return;
 
-    if (active.id !== over.id) {
+    const activeId = active.id as string;
+    const overId = over.id as string;
+
+    if (activeId !== overId) {
       setPackData((prev: Pack) => {
         const updatedRounds = [...prev.rounds];
         const currentRound = updatedRounds[currentRoundIndex];
 
+        // Handle Theme Drag and Drop
+        if (activeId.startsWith('t-') && overId.startsWith('t-')) {
+          const activeThemeId = parseInt(activeId.replace('t-', ''), 10);
+          const overThemeId = parseInt(overId.replace('t-', ''), 10);
+
+          const activeIndex = currentRound.themes.findIndex(t => t.id === activeThemeId);
+          const overIndex = currentRound.themes.findIndex(t => t.id === overThemeId);
+
+          if (activeIndex !== -1 && overIndex !== -1) {
+            currentRound.themes = arrayMove(currentRound.themes, activeIndex, overIndex);
+          }
+          return { ...prev, rounds: updatedRounds };
+        }
+
+        // Handle Question Drag and Drop
         let activeThemeIndex = -1;
         let activeQuestionIndex = -1;
         let overThemeIndex = -1;
@@ -274,25 +306,21 @@ const PackForm: React.FC = () => {
         // Find source and destination
         currentRound.themes.forEach((theme: Theme, tIdx: number) => {
           theme.questions.forEach((q: Question, qIdx: number) => {
-            if (`q-${q.id}` === active.id) {
+            if (`q-${q.id}` === activeId) {
               activeThemeIndex = tIdx;
               activeQuestionIndex = qIdx;
             }
-            if (`q-${q.id}` === over.id) {
+            if (`q-${q.id}` === overId) {
               overThemeIndex = tIdx;
               overQuestionIndex = qIdx;
             }
           });
-
-          // Also check for empty slots if needed, but for now we only care about questions
         });
 
         if (activeThemeIndex === -1) return prev; // Should not happen
 
         if (overThemeIndex === -1) {
           // Check if dropped over an empty slot
-          // empty-${themeIndex}-${index}
-          const overId = over.id as string;
           if (overId.startsWith('empty-')) {
             const parts = overId.split('-');
             overThemeIndex = parseInt(parts[1], 10);
@@ -347,7 +375,7 @@ const PackForm: React.FC = () => {
         ...convertedPack,
         rounds: convertedPack.rounds && convertedPack.rounds.length > 0 ? convertedPack.rounds : [{ name: 'Round 1', themes: [] }],
       };
-      setPackData(ensureQuestionIds(safePack));
+      setPackData(ensurePackIds(safePack));
       setCurrentRoundIndex(0);
     } catch (error) {
       console.error('Error repacking SIQ package:', error);
@@ -381,7 +409,7 @@ const PackForm: React.FC = () => {
 
       await clearStorage();
       await savePack(jsonData);
-      setPackData(ensureQuestionIds(jsonData));
+      setPackData(ensurePackIds(jsonData));
       setCurrentRoundIndex(0);
     } catch (error) {
       console.error('Error loading JSON file:', error);

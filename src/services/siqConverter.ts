@@ -259,7 +259,7 @@ const convertQuestion = async (questionNode: Element, loadMedia: MediaLoader, ne
   return question;
 };
 
-const convertTheme = async (themeNode: Element, loadMedia: MediaLoader, nextId: { current: number }): Promise<Theme> => {
+const convertTheme = async (themeNode: Element, loadMedia: MediaLoader, nextQuestionId: { current: number }, nextThemeId: { current: number }): Promise<Theme> => {
   const name = themeNode.getAttribute('name') || 'Untitled Theme';
   const description = extractInfoText(themeNode) || undefined;
   const questionsNode = getChildElements(themeNode, 'questions')[0];
@@ -267,10 +267,11 @@ const convertTheme = async (themeNode: Element, loadMedia: MediaLoader, nextId: 
 
   const questions: Question[] = [];
   for (const questionNode of questionNodes) {
-    questions.push(await convertQuestion(questionNode, loadMedia, nextId));
+    questions.push(await convertQuestion(questionNode, loadMedia, nextQuestionId));
   }
 
   return {
+    id: nextThemeId.current++,
     name,
     description,
     ordered: false,
@@ -278,14 +279,14 @@ const convertTheme = async (themeNode: Element, loadMedia: MediaLoader, nextId: 
   };
 };
 
-const convertRound = async (roundNode: Element, loadMedia: MediaLoader, nextId: { current: number }): Promise<Round> => {
+const convertRound = async (roundNode: Element, loadMedia: MediaLoader, nextQuestionId: { current: number }, nextThemeId: { current: number }): Promise<Round> => {
   const name = roundNode.getAttribute('name') || 'Round';
   const themesNode = getChildElements(roundNode, 'themes')[0];
   const themeNodes = themesNode ? getChildElements(themesNode, 'theme') : [];
 
   const themes: Theme[] = [];
   for (const themeNode of themeNodes) {
-    themes.push(await convertTheme(themeNode, loadMedia, nextId));
+    themes.push(await convertTheme(themeNode, loadMedia, nextQuestionId, nextThemeId));
   }
 
   return {
@@ -310,10 +311,11 @@ const convertDocumentToPack = async (doc: Document, loadMedia: MediaLoader): Pro
     throw new Error('No rounds found in SIQ package.');
   }
 
-  const nextId = { current: 1 };
+  const nextQuestionId = { current: 1 };
+  const nextThemeId = { current: 1 };
   const rounds: Round[] = [];
   for (const roundNode of roundNodes) {
-    rounds.push(await convertRound(roundNode, loadMedia, nextId));
+    rounds.push(await convertRound(roundNode, loadMedia, nextQuestionId, nextThemeId));
   }
 
   return {
