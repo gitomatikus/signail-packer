@@ -403,10 +403,6 @@ const PackForm: React.FC = () => {
       const text = await file.text();
       const jsonData = JSON.parse(text);
 
-      if (!jsonData.author || !jsonData.name || !Array.isArray(jsonData.rounds)) {
-        throw new Error('Invalid pack JSON structure');
-      }
-
       await clearStorage();
       await savePack(jsonData);
       setPackData(ensurePackIds(jsonData));
