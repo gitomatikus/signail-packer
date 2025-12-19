@@ -18,6 +18,7 @@ import {
 } from '@mui/material';
 import { Add as AddIcon, Delete as DeleteIcon, Edit as EditIcon, Close as CloseIcon } from '@mui/icons-material';
 import { Rule, RuleType } from '../types/pack';
+import { isContentEmpty } from '../utils/contentUtils';
 import ReactQuill, { Quill } from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import '../quill-theme.css';
@@ -117,10 +118,10 @@ const RuleForm: React.FC<RuleFormProps> = ({
   }
 
   const handleAddRule = () => {
-    if (draftRule.type && draftRule.content) {
+    if (draftRule.type && !isContentEmpty(draftRule.content)) {
       const ruleToSave = {
         ...draftRule,
-        content: convertMediaTags(draftRule.content),
+        content: convertMediaTags(draftRule.content!),
       } as Rule;
 
       if (editingIndex !== null) {
@@ -156,6 +157,10 @@ const RuleForm: React.FC<RuleFormProps> = ({
       content: '',
       duration: 15,
     });
+  };
+
+  const handleCancelEditOrClear = () => {
+    handleCancelEdit();
   };
 
   const handleDeleteRule = (index: number) => {
@@ -365,4 +370,4 @@ const RuleForm: React.FC<RuleFormProps> = ({
   );
 };
 
-export default RuleForm; 
+export default RuleForm;

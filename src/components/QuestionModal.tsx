@@ -12,6 +12,7 @@ import {
     Typography,
 } from '@mui/material';
 import { Question, QuestionType, Rule, RuleType } from '../types/pack';
+import { isContentEmpty } from '../utils/contentUtils';
 import RuleForm from './RuleForm';
 
 
@@ -125,19 +126,19 @@ const QuestionModal: React.FC<QuestionModalProps> = ({
     const handleSave = () => {
         // Auto-save drafts if they have content
         let currentRules = [...(formData.rules || [])];
-        if (draftRule.content) {
+        if (!isContentEmpty(draftRule.content)) {
             const ruleToAdd = {
                 ...draftRule,
-                content: convertMediaTags(draftRule.content),
+                content: convertMediaTags(draftRule.content!),
             } as Rule;
             currentRules.push(ruleToAdd);
         }
 
         let currentAfterRound = [...(formData.after_round || [])];
-        if (draftAfterRound.content) {
+        if (!isContentEmpty(draftAfterRound.content)) {
             const ruleToAdd = {
                 ...draftAfterRound,
-                content: convertMediaTags(draftAfterRound.content),
+                content: convertMediaTags(draftAfterRound.content!),
             } as Rule;
             currentAfterRound.push(ruleToAdd);
         }
